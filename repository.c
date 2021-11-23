@@ -18,6 +18,7 @@
 static struct repository the_repo;
 struct repository *the_repository;
 struct index_state the_index;
+char *the_cwd;
 
 void initialize_the_repository(void)
 {
