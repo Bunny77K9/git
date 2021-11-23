@@ -380,7 +380,7 @@ static void child_err_spew(struct child_process *cmd, struct child_err *cerr)
 	switch (cerr->err) {
 	case CHILD_ERR_CHDIR:
 		error_errno("exec '%s': cd to '%s' failed",
-			    cmd->argv[0], cmd->dir);
+			    cmd->args.v[0], cmd->dir);
 		break;
 	case CHILD_ERR_DUP2:
 		error_errno("dup2() in child failed");
@@ -392,12 +392,12 @@ static void child_err_spew(struct child_process *cmd, struct child_err *cerr)
 		error_errno("sigprocmask failed restoring signals");
 		break;
 	case CHILD_ERR_ENOENT:
-		error_errno("cannot run %s", cmd->argv[0]);
+		error_errno("cannot run %s", cmd->args.v[0]);
 		break;
 	case CHILD_ERR_SILENT:
 		break;
 	case CHILD_ERR_ERRNO:
-		error_errno("cannot exec '%s'", cmd->argv[0]);
+		error_errno("cannot exec '%s'", cmd->args.v[0]);
 		break;
 	}
 	set_error_routine(old_errfn);
@@ -405,7 +405,7 @@ static void child_err_spew(struct child_process *cmd, struct child_err *cerr)
 
 static int prepare_cmd(struct strvec *out, const struct child_process *cmd)
 {
-	if (!cmd->argv[0])
+	if (!cmd->args.v[0])
 		BUG("command is empty");
 
 	/*
@@ -415,11 +415,11 @@ static int prepare_cmd(struct strvec *out, const struct child_process *cmd)
 	strvec_push(out, SHELL_PATH);
 
 	if (cmd->git_cmd) {
-		prepare_git_cmd(out, cmd->argv);
+		prepare_git_cmd(out, cmd->args.v);
 	} else if (cmd->use_shell) {
-		prepare_shell_cmd(out, cmd->argv);
+		prepare_shell_cmd(out, cmd->args.v);
 	} else {
-		strvec_pushv(out, cmd->argv);
+		strvec_pushv(out, cmd->args.v);
 	}
 
 	/*
@@ -662,7 +662,7 @@ static void trace_run_command(const struct child_process *cp)
 		trace_add_env(&buf, cp->env);
 	if (cp->git_cmd)
 		strbuf_addstr(&buf, " git");
-	sq_quote_argv_pretty(&buf, cp->argv);
+	sq_quote_argv_pretty(&buf, cp->args.v);
 
 	trace_printf("%s", buf.buf);
 	strbuf_release(&buf);
@@ -675,8 +675,6 @@ int start_command(struct child_process *cmd)
 	int failed_errno;
 	char *str;
 
-	if (!cmd->argv)
-		cmd->argv = cmd->args.v;
 	if (!cmd->env)
 		cmd->env = cmd->env_array.v;
 
@@ -728,7 +726,7 @@ int start_command(struct child_process *cmd)
 			str = "standard error";
 fail_pipe:
 			error("cannot create %s pipe for %s: %s",
-				str, cmd->argv[0], strerror(failed_errno));
+				str, cmd->args.v[0], strerror(failed_errno));
 			child_process_clear(cmd);
 			errno = failed_errno;
 			return -1;
@@ -757,7 +755,7 @@ fail_pipe:
 		failed_errno = errno;
 		cmd->pid = -1;
 		if (!cmd->silent_exec_failure)
-			error_errno("cannot run %s", cmd->argv[0]);
+			error_errno("cannot run %s", cmd->args.v[0]);
 		goto end_of_spawn;
 	}
 
@@ -867,7 +865,7 @@ fail_pipe:
 	}
 	atfork_parent(&as);
 	if (cmd->pid < 0)
-		error_errno("cannot fork() for %s", cmd->argv[0]);
+		error_errno("cannot fork() for %s", cmd->args.v[0]);
 	else if (cmd->clean_on_exit)
 		mark_child_for_cleanup(cmd->pid, cmd);
 
@@ -884,7 +882,7 @@ fail_pipe:
 		 * At this point we know that fork() succeeded, but exec()
 		 * failed. Errors have been reported to our stderr.
 		 */
-		wait_or_whine(cmd->pid, cmd->argv[0], 0);
+		wait_or_whine(cmd->pid, cmd->args.v[0], 0);
 		child_err_spew(cmd, &cerr);
 		failed_errno = errno;
 		cmd->pid = -1;
@@ -901,8 +899,9 @@ end_of_spawn:
 #else
 {
 	int fhin = 0, fhout = 1, fherr = 2;
-	const char **sargv = cmd->argv;
+	const char **sargv = strvec_detach(&cmd->args);
 	struct strvec nargv = STRVEC_INIT;
+	const char **temp_argv = NULL;
 
 	if (cmd->no_stdin)
 		fhin = open("/dev/null", O_RDWR);
@@ -928,20 +927,26 @@ end_of_spawn:
 		fhout = dup(cmd->out);
 
 	if (cmd->git_cmd)
-		cmd->argv = prepare_git_cmd(&nargv, cmd->argv);
+		temp_argv = prepare_git_cmd(&nargv, sargv);
 	else if (cmd->use_shell)
-		cmd->argv = prepare_shell_cmd(&nargv, cmd->argv);
+		temp_argv = prepare_shell_cmd(&nargv, sargv);
+	else
+		temp_argv = sargv;
+	if (!temp_argv)
+		BUG("should have some cmd->args to set");
+	strvec_pushv(&cmd->args, temp_argv);
+	strvec_clear(&nargv);
 
-	cmd->pid = mingw_spawnvpe(cmd->argv[0], cmd->argv, (char**) cmd->env,
+	cmd->pid = mingw_spawnvpe(cmd->args.v[0], cmd->args.v, (char**) cmd->env,
 			cmd->dir, fhin, fhout, fherr);
 	failed_errno = errno;
 	if (cmd->pid < 0 && (!cmd->silent_exec_failure || errno != ENOENT))
-		error_errno("cannot spawn %s", cmd->argv[0]);
+		error_errno("cannot spawn %s", cmd->args.v[0]);
 	if (cmd->clean_on_exit && cmd->pid >= 0)
 		mark_child_for_cleanup(cmd->pid, cmd);
 
-	strvec_clear(&nargv);
-	cmd->argv = sargv;
+	strvec_pushv(&cmd->args, sargv);;
+	free(sargv);
 	if (fhin != 0)
 		close(fhin);
 	if (fhout != 1)
@@ -991,7 +996,7 @@ end_of_spawn:
 
 int finish_command(struct child_process *cmd)
 {
-	int ret = wait_or_whine(cmd->pid, cmd->argv[0], 0);
+	int ret = wait_or_whine(cmd->pid, cmd->args.v[0], 0);
 	trace2_child_exit(cmd, ret);
 	child_process_clear(cmd);
 	invalidate_lstat_cache();
@@ -1000,7 +1005,7 @@ int finish_command(struct child_process *cmd)
 
 int finish_command_in_signal(struct child_process *cmd)
 {
-	int ret = wait_or_whine(cmd->pid, cmd->argv[0], 1);
+	int ret = wait_or_whine(cmd->pid, cmd->args.v[0], 1);
 	trace2_child_exit(cmd, ret);
 	return ret;
 }
@@ -1038,7 +1043,7 @@ int run_command_v_opt_cd_env_tr2(const char **argv, int opt, const char *dir,
 				 const char *const *env, const char *tr2_class)
 {
 	struct child_process cmd = CHILD_PROCESS_INIT;
-	cmd.argv = argv;
+	strvec_pushv(&cmd.args, argv);
 	cmd.no_stdin = opt & RUN_COMMAND_NO_STDIN ? 1 : 0;
 	cmd.git_cmd = opt & RUN_GIT_CMD ? 1 : 0;
 	cmd.stdout_to_stderr = opt & RUN_COMMAND_STDOUT_TO_STDERR ? 1 : 0;

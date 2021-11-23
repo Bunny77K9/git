@@ -16,6 +16,10 @@ test_expect_success 'setup' '
 	test_commit initial
 '
 
+test_expect_success 'non-existent pager does not segfault' '
+	git -c pager.show=INVALID show
+'
+
 test_expect_success TTY 'some commands use a pager' '
 	rm -f paginated.out &&
 	test_terminal git log &&

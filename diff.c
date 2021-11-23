@@ -6921,19 +6921,14 @@ static char *run_textconv(struct repository *r,
 			  size_t *outsize)
 {
 	struct diff_tempfile *temp;
-	const char *argv[3];
-	const char **arg = argv;
 	struct child_process child = CHILD_PROCESS_INIT;
 	struct strbuf buf = STRBUF_INIT;
 	int err = 0;
 
 	temp = prepare_temp_file(r, spec->path, spec);
-	*arg++ = pgm;
-	*arg++ = temp->name;
-	*arg = NULL;
 
 	child.use_shell = 1;
-	child.argv = argv;
+	strvec_pushl(&child.args, pgm, temp->name, NULL);
 	child.out = -1;
 	if (start_command(&child)) {
 		remove_tempfile();

@@ -355,7 +355,6 @@ static int add_worktree(const char *path, const char *refname,
 		goto done;
 
 	if (opts->checkout) {
-		cp.argv = NULL;
 		strvec_clear(&cp.args);
 		strvec_pushl(&cp.args, "reset", "--hard", "--no-recurse-submodules", NULL);
 		if (opts->quiet)
@@ -390,7 +389,6 @@ done:
 			cp.stdout_to_stderr = 1;
 			cp.dir = path;
 			cp.env = env;
-			cp.argv = NULL;
 			cp.trace2_hook_name = "post-checkout";
 			strvec_pushl(&cp.args, absolute_path(hook),
 				     oid_to_hex(null_oid()),

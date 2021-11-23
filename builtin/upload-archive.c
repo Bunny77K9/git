@@ -77,7 +77,7 @@ static ssize_t process_input(int child_fd, int band)
 
 int cmd_upload_archive(int argc, const char **argv, const char *prefix)
 {
-	struct child_process writer = { argv };
+	struct child_process writer = CHILD_PROCESS_INIT;
 
 	if (argc == 2 && !strcmp(argv[1], "-h"))
 		usage(upload_archive_usage);
@@ -92,6 +92,9 @@ int cmd_upload_archive(int argc, const char **argv, const char *prefix)
 	argv[0] = "upload-archive--writer";
 	writer.out = writer.err = -1;
 	writer.git_cmd = 1;
+	strvec_push(&writer.args, "upload-archive--writer");
+	if (argc > 1)
+		strvec_pushv(&writer.args, &argv[1]);
 	if (start_command(&writer)) {
 		int err = errno;
 		packet_write_fmt(1, "NACK unable to spawn subprocess\n");

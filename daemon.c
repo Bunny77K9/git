@@ -326,22 +326,13 @@ static int run_access_hook(struct daemon_service *service, const char *dir,
 {
 	struct child_process child = CHILD_PROCESS_INIT;
 	struct strbuf buf = STRBUF_INIT;
-	const char *argv[8];
-	const char **arg = argv;
 	char *eol;
 	int seen_errors = 0;
 
-	*arg++ = access_hook;
-	*arg++ = service->name;
-	*arg++ = path;
-	*arg++ = hi->hostname.buf;
-	*arg++ = get_canon_hostname(hi);
-	*arg++ = get_ip_address(hi);
-	*arg++ = hi->tcp_port.buf;
-	*arg = NULL;
-
 	child.use_shell = 1;
-	child.argv = argv;
+	strvec_pushl(&child.args, access_hook, service->name, path,
+		     hi->hostname.buf, get_canon_hostname(hi),
+		     get_ip_address(hi), hi->tcp_port.buf, NULL);
 	child.no_stdin = 1;
 	child.no_stderr = 1;
 	child.out = -1;
@@ -922,7 +913,7 @@ static void handle(int incoming, struct sockaddr *addr, socklen_t addrlen)
 #endif
 	}
 
-	cld.argv = cld_argv.v;
+	strvec_pushv(&cld.args, cld_argv.v);
 	cld.in = incoming;
 	cld.out = dup(incoming);
 

@@ -141,7 +141,7 @@ static void write_commented_object(int fd, const struct object_id *object)
 	struct strbuf cbuf = STRBUF_INIT;
 
 	/* Invoke "git show --stat --no-notes $object" */
-	show.argv = show_args;
+	strvec_pushv(&show.args, show_args);
 	show.no_stdin = 1;
 	show.out = -1;
 	show.err = 0;

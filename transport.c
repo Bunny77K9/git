@@ -1213,7 +1213,7 @@ static int run_pre_push_hook(struct transport *transport,
 	argv[2] = transport->url;
 	argv[3] = NULL;
 
-	proc.argv = argv;
+	strvec_pushv(&proc.args, argv);
 	proc.in = -1;
 	proc.trace2_hook_name = "pre-push";
 

@@ -823,7 +823,7 @@ static int run_and_feed_hook(const char *hook_name, feed_fn feed,
 
 	argv[1] = NULL;
 
-	proc.argv = argv;
+	strvec_pushv(&proc.args, argv);
 	proc.in = -1;
 	proc.stdout_to_stderr = 1;
 	proc.trace2_hook_name = hook_name;
@@ -961,7 +961,7 @@ static int run_update_hook(struct command *cmd)
 	proc.no_stdin = 1;
 	proc.stdout_to_stderr = 1;
 	proc.err = use_sideband ? -1 : 0;
-	proc.argv = argv;
+	strvec_pushv(&proc.args, argv);
 	proc.trace2_hook_name = "update";
 
 	code = start_command(&proc);
@@ -1134,7 +1134,7 @@ static int run_proc_receive_hook(struct command *commands,
 	}
 	argv[1] = NULL;
 
-	proc.argv = argv;
+	strvec_pushv(&proc.args, argv);
 	proc.in = -1;
 	proc.out = -1;
 	proc.trace2_hook_name = "proc-receive";
@@ -1387,7 +1387,7 @@ static const char *push_to_deploy(unsigned char *sha1,
 	};
 	struct child_process child = CHILD_PROCESS_INIT;
 
-	child.argv = update_refresh;
+	strvec_pushv(&child.args, update_refresh);
 	child.env = env->v;
 	child.dir = work_tree;
 	child.no_stdin = 1;
@@ -1398,7 +1398,7 @@ static const char *push_to_deploy(unsigned char *sha1,
 
 	/* run_command() does not clean up completely; reinitialize */
 	child_process_init(&child);
-	child.argv = diff_files;
+	strvec_pushv(&child.args, diff_files);
 	child.env = env->v;
 	child.dir = work_tree;
 	child.no_stdin = 1;
@@ -1411,7 +1411,7 @@ static const char *push_to_deploy(unsigned char *sha1,
 	diff_index[4] = head_has_history() ? "HEAD" : empty_tree_oid_hex();
 
 	child_process_init(&child);
-	child.argv = diff_index;
+	strvec_pushv(&child.args, diff_index);
 	child.env = env->v;
 	child.no_stdin = 1;
 	child.no_stdout = 1;
@@ -1422,7 +1422,7 @@ static const char *push_to_deploy(unsigned char *sha1,
 
 	read_tree[3] = hash_to_hex(sha1);
 	child_process_init(&child);
-	child.argv = read_tree;
+	strvec_pushv(&child.args, read_tree);
 	child.env = env->v;
 	child.dir = work_tree;
 	child.no_stdin = 1;
@@ -2594,7 +2594,7 @@ int cmd_receive_pack(int argc, const char **argv, const char *prefix)
 			proc.stdout_to_stderr = 1;
 			proc.err = use_sideband ? -1 : 0;
 			proc.git_cmd = proc.close_object_store = 1;
-			proc.argv = argv_gc_auto;
+			strvec_pushv(&proc.args, argv_gc_auto);
 
 			if (!start_command(&proc)) {
 				if (use_sideband)

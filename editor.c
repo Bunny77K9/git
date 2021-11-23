@@ -79,7 +79,7 @@ static int launch_specified_editor(const char *editor, const char *path,
 		strbuf_realpath(&realpath, path, 1);
 		args[1] = realpath.buf;
 
-		p.argv = args;
+		strvec_pushv(&p.args, args);
 		p.env = env;
 		p.use_shell = 1;
 		p.trace2_child_class = "editor";

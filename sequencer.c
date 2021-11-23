@@ -1175,7 +1175,7 @@ static int run_rewrite_hook(const struct object_id *oldoid,
 	argv[1] = "amend";
 	argv[2] = NULL;
 
-	proc.argv = argv;
+	strvec_pushv(&proc.args, argv);
 	proc.in = -1;
 	proc.stdout_to_stderr = 1;
 	proc.trace2_hook_name = "post-rewrite";
