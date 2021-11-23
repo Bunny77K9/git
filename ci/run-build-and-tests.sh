@@ -10,16 +10,13 @@ windows*) cmd //c mklink //j t\\.prove "$(cygpath -aw "$cache_dir/.prove")";;
 *) ln -s "$cache_dir/.prove" t/.prove;;
 esac
 
-if test "$jobname" = "pedantic"
-then
-	export DEVOPTS=pedantic
-fi
+export MAKE_TARGETS="all test"
 
-make
 case "$jobname" in
 linux-gcc)
 	export GIT_TEST_DEFAULT_INITIAL_BRANCH_NAME=main
-	make test
+	;;
+linux-TEST-vars)
 	export GIT_TEST_SPLIT_INDEX=yes
 	export GIT_TEST_MERGE_ALGORITHM=recursive
 	export GIT_TEST_FULL_IN_PACK_ARRAY=true
@@ -33,22 +30,23 @@ linux-gcc)
 	export GIT_TEST_DEFAULT_INITIAL_BRANCH_NAME=master
 	export GIT_TEST_WRITE_REV_INDEX=1
 	export GIT_TEST_CHECKOUT_WORKERS=2
-	make test
 	;;
 linux-clang)
 	export GIT_TEST_DEFAULT_HASH=sha1
-	make test
+	;;
+linux-sha256)
 	export GIT_TEST_DEFAULT_HASH=sha256
-	make test
 	;;
-linux-gcc-4.8|pedantic)
-	# Don't run the tests; we only care about whether Git can be
-	# built with GCC 4.8 or with pedantic
+pedantic)
+	export DEVOPTS=pedantic
+	export MAKE_TARGETS=all
 	;;
-*)
-	make test
+linux-gcc-4.8)
+	export MAKE_TARGETS=all
 	;;
 esac
+
+make $MAKE_TARGETS
 
 check_unignored_build_artifacts
 
